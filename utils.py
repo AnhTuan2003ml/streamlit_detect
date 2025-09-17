@@ -18,10 +18,15 @@ def save_for_retrain(img, labels, class_names, save_dir="retrain_data"):
     return img_path, label_path
 
 
-def init_recorder():
-    os.makedirs("recordings", exist_ok=True)
+
+def init_recorders():
+    import os, time, cv2
+    os.makedirs("recordings/raw", exist_ok=True)
+    os.makedirs("recordings/detect", exist_ok=True)
     session_name = time.strftime("%Y%m%d_%H%M%S")
-    path = f"recordings/{session_name}.avi"
+    path_raw = f"recordings/raw/{session_name}.avi"
+    path_detect = f"recordings/detect/{session_name}.avi"
     fourcc = cv2.VideoWriter_fourcc(*'XVID')
-    out = cv2.VideoWriter(path, fourcc, 20.0, (640, 480))
-    return out, path
+    out_raw = cv2.VideoWriter(path_raw, fourcc, 20.0, (640, 480))
+    out_detect = cv2.VideoWriter(path_detect, fourcc, 20.0, (640, 480))
+    return out_raw, path_raw, out_detect, path_detect

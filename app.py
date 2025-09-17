@@ -4,7 +4,7 @@ import tempfile
 import numpy as np
 import time
 from ultralytics import YOLO
-from utils import save_for_retrain, init_recorder
+from utils import save_for_retrain, init_recorders
 from streamlit_drawable_canvas import st_canvas
 from PIL import Image
 
@@ -56,15 +56,23 @@ status_placeholder = st.empty()
 
 # --- Hàm xử lý video/camera realtime ---
 def process_video(cap, record=False):
-    out, path = (None, None)
+    out_raw, path_raw, out_detect, path_detect = (None, None, None, None)
+
     if record:
-        out, path = init_recorder()
-        st.sidebar.success(f"Đang ghi: {path}")
+        fps = int(cap.get(cv2.CAP_PROP_FPS)) or 30
+        frame_size = (int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
+                      int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+        out_raw, path_raw, out_detect, path_detect = init_recorders(fps=fps, frame_size=frame_size)
+        st.sidebar.success(f"🎥 Đang ghi video:\n- Gốc: {path_raw}\n- Detect: {path_detect}")
 
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
             break
+
+        # Lưu video gốc
+        if record and out_raw is not None:
+            out_raw.write(frame)
 
         # Detect
         results = model.predict(frame, conf=conf, imgsz=640, verbose=False)
@@ -74,20 +82,59 @@ def process_video(cap, record=False):
         frame_placeholder.image(annotated, channels="BGR", width=640)
         status_placeholder.write(f"⏱️ {time.strftime('%H:%M:%S')}")
 
-        # Nếu có ghi hình
-        if record and out is not None:
-            out.write(annotated)
-
-        time.sleep(0.03)  # khoảng 30 FPS
+        # Lưu video detect
+        if record and out_detect is not None:
+            out_detect.write(annotated)
 
     cap.release()
-    if out: out.release()
+    if out_raw: out_raw.release()
+    if out_detect: out_detect.release()
+
 
 
 # --- Camera Realtime ---
 if source == "Camera":
     cap = cv2.VideoCapture(0)
-    process_video(cap, record=record)
+    out_raw = out_detect = path_raw = path_detect = None
+    recording = False
+    start_time = None
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+        # Khi bắt đầu ghi
+        if record and not recording:
+            out_raw, path_raw, out_detect, path_detect = init_recorders()
+            recording = True
+            start_time = time.time()
+            st.sidebar.success(f"Đang ghi: {path_raw}, {path_detect}")
+        # Khi dừng ghi
+        if not record and recording:
+            out_raw.release()
+            out_detect.release()
+            recording = False
+            start_time = None
+            st.sidebar.info("Đã dừng ghi")
+        # Ghi video nếu đang ghi
+        if recording:
+            frame_resized = cv2.resize(frame, (640, 480))
+            out_raw.write(frame_resized)
+        # Detect
+        results = model.predict(frame, conf=conf, imgsz=640, verbose=False)
+        annotated = results[0].plot()
+        if recording:
+            annotated_resized = cv2.resize(annotated, (640, 480))
+            out_detect.write(annotated_resized)
+            elapsed = int(time.time() - start_time)
+            h, m, s = elapsed // 3600, (elapsed % 3600) // 60, elapsed % 60
+            status_placeholder.write(f"⏺️ Đang ghi: {h}:{m}:{s}")
+        frame_placeholder.image(annotated, channels="BGR", width=640)
+        if not recording:
+            status_placeholder.write(f"⏱️ {time.strftime('%H:%M:%S')}")
+    cap.release()
+    if recording:
+        out_raw.release()
+        out_detect.release()
 
 # --- Upload Ảnh ---
 # --- Upload Ảnh ---
