@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+*.log
+
+# Virtual environment
+venv/
+ENV/
+env/
+.venv/
+
+# Streamlit cache
+.streamlit/
+
+# Model, data, temp
+*.pt
+*.onnx
+*.engine
+*.tflite
+*.mlmodel
+*.pb
+*.torchscript
+*.ncnn
+retrain_data/
+recordings/
+*.avi
+*.mp4
+*.mkv
+*.mov
+
+# OS
+.DS_Store
+Thumbs.db
